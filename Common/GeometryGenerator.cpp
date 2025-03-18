@@ -316,6 +316,93 @@ GeometryGenerator::CreateCylinder(float bottomRadius, float topRadius, float hei
     return meshData;
 }
 
+GeometryGenerator::MeshData GeometryGenerator::CreateCone(float bottomRadius, float height, uint32 sliceCount, uint32 stackCount)
+{
+    MeshData meshData;
+
+    // Base du cône (un cercle)
+    float theta = 2.0f * XM_PI / sliceCount;
+    for (uint32 i = 0; i <= sliceCount; ++i)
+    {
+        float x = bottomRadius * cosf(i * theta);
+        float z = bottomRadius * sinf(i * theta);
+        meshData.Vertices.push_back({ {x, 0.0f, z}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f} });
+    }
+
+    // Sommet du cône
+    meshData.Vertices.push_back({ {0.0f, height, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.5f, 0.5f} });
+
+    // Indices pour les triangles
+    uint32 centerIndex = (uint32)meshData.Vertices.size() - 1;
+    for (uint32 i = 0; i < sliceCount; ++i)
+    {
+        meshData.Indices32.push_back(i);
+        meshData.Indices32.push_back((i + 1) % sliceCount);
+        meshData.Indices32.push_back(centerIndex);
+    }
+
+    return meshData;
+}
+
+GeometryGenerator::MeshData GeometryGenerator::CreatePyramid(float baseWidth, float height)
+{
+    MeshData meshData;
+
+    float halfWidth = baseWidth / 2.0f;
+
+    // Base de la pyramide (carré)
+    meshData.Vertices.push_back({ {-halfWidth, 0.0f, -halfWidth}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f} });
+    meshData.Vertices.push_back({ {halfWidth, 0.0f, -halfWidth}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f} });
+    meshData.Vertices.push_back({ {halfWidth, 0.0f, halfWidth}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f} });
+    meshData.Vertices.push_back({ {-halfWidth, 0.0f, halfWidth}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f} });
+
+    // Sommet de la pyramide
+    meshData.Vertices.push_back({ {0.0f, height, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.5f, 0.5f} });
+
+    // Indices pour les triangles
+    meshData.Indices32 = {
+        0, 1, 4, // Face avant
+        1, 2, 4, // Face droite
+        2, 3, 4, // Face arrière
+        3, 0, 4  // Face gauche
+    };
+
+    return meshData;
+}
+
+GeometryGenerator::MeshData GeometryGenerator::CreateDiamond(float width, float height)
+{
+    MeshData meshData;
+
+    float halfWidth = width / 2.0f;
+    float halfHeight = height / 2.0f;
+
+    // Sommet supérieur
+    meshData.Vertices.push_back({ {0.0f, halfHeight, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.5f, 0.5f} });
+
+    // Base du diamant (carré)
+    meshData.Vertices.push_back({ {-halfWidth, 0.0f, -halfWidth}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f} });
+    meshData.Vertices.push_back({ {halfWidth, 0.0f, -halfWidth}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f} });
+    meshData.Vertices.push_back({ {halfWidth, 0.0f, halfWidth}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f} });
+    meshData.Vertices.push_back({ {-halfWidth, 0.0f, halfWidth}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f} });
+
+    // Sommet inférieur
+    meshData.Vertices.push_back({ {0.0f, -halfHeight, 0.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.5f, 0.5f} });
+
+    // Indices pour les triangles
+    meshData.Indices32 = {
+        0, 1, 2, // Face avant supérieure
+        0, 2, 3, // Face droite supérieure
+        0, 3, 4, // Face arrière supérieure
+        0, 4, 1, // Face gauche supérieure
+        5, 2, 1, // Face avant inférieure
+        5, 3, 2, // Face droite inférieure
+        5, 4, 3, // Face arrière inférieure
+        5, 1, 4  // Face gauche inférieure
+    };
+
+    return meshData;
+}
 void GeometryGenerator::BuildCylinderTopCap(
     float bottomRadius, float topRadius, float height,
     uint32 sliceCount, uint32 stackCount, MeshData& meshData)
