@@ -1,4 +1,4 @@
-//***************************************************************************************
+﻿//***************************************************************************************
 // GeometryGenerator.cpp by Frank Luna (C) 2011 All Rights Reserved.
 //***************************************************************************************
 
@@ -836,7 +836,40 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTorus(float outerRadius, fl
 	return meshData;
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreatePyramid(float width, float height, float depth, uint32 numSubdivisions) {
+void GeometryGenerator::ComputeNormals(MeshData& meshData)
+{
+	std::vector<XMFLOAT3> normals(meshData.Vertices.size(), XMFLOAT3(0, 0, 0));
+
+	for (size_t i = 0; i < meshData.Indices32.size(); i += 3)
+	{
+		uint32 i0 = meshData.Indices32[i];
+		uint32 i1 = meshData.Indices32[i + 1];
+		uint32 i2 = meshData.Indices32[i + 2];
+
+		XMVECTOR p0 = XMLoadFloat3(&meshData.Vertices[i0].Position);
+		XMVECTOR p1 = XMLoadFloat3(&meshData.Vertices[i1].Position);
+		XMVECTOR p2 = XMLoadFloat3(&meshData.Vertices[i2].Position);
+
+		XMVECTOR e0 = p1 - p0;
+		XMVECTOR e1 = p2 - p0;
+		XMVECTOR normal = XMVector3Normalize(XMVector3Cross(e0, e1));
+
+		XMStoreFloat3(&normals[i0], XMLoadFloat3(&normals[i0]) + normal);
+		XMStoreFloat3(&normals[i1], XMLoadFloat3(&normals[i1]) + normal);
+		XMStoreFloat3(&normals[i2], XMLoadFloat3(&normals[i2]) + normal);
+	}
+
+	for (size_t i = 0; i < meshData.Vertices.size(); ++i)
+	{
+		XMVECTOR n = XMVector3Normalize(XMLoadFloat3(&normals[i]));
+		XMStoreFloat3(&meshData.Vertices[i].Normal, n);
+	}
+}
+
+
+
+GeometryGenerator::MeshData GeometryGenerator::CreatePyramid(float width, float height, float depth, uint32 numSubdivisions)
+{
 	MeshData meshData;
 
 	float w2 = 0.5f * width;
@@ -844,29 +877,32 @@ GeometryGenerator::MeshData GeometryGenerator::CreatePyramid(float width, float 
 	float d2 = 0.5f * depth;
 
 	Vertex v[5] = {
-		Vertex(-w2, -h2, -d2,  0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 1.0f),
-		Vertex(w2, -h2, -d2,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  1.0f, 1.0f),
-		Vertex(w2, -h2, d2,    0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  1.0f, 0.0f),
-		Vertex(-w2, -h2, d2,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f),
-
-		Vertex(0.0f, h2, 0.0f,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f, 0.0f,  0.5f, 0.5f)
+		Vertex(-w2, -h2, -d2, 0, 0, 0, 1, 0, 0, 0, 1), // base left-back
+		Vertex(w2, -h2, -d2, 0, 0, 0, 1, 0, 0, 1, 1),  // base right-back
+		Vertex(w2, -h2, d2,  0, 0, 0, 1, 0, 0, 1, 0),  // base right-front
+		Vertex(-w2, -h2, d2, 0, 0, 0, 1, 0, 0, 0, 0),  // base left-front
+		Vertex(0.0f, h2, 0.0f, 0, 0, 0, 0, 1, 0, 0.5f, 0.5f) // top
 	};
 
 	meshData.Vertices.assign(&v[0], &v[5]);
 
 	uint32 i[18] = {
-		0, 1, 2,  0, 2, 3,
+		0, 2, 1,  0, 3, 2,  // base (correct winding: counter-clockwise)
 
-		0, 1, 4,
-		1, 2, 4,
-		2, 3, 4,
-		3, 0, 4
+		1, 0, 4,            // face 1
+		2, 1, 4,            // face 2
+		3, 2, 4,            // face 3
+		0, 3, 4             // face 4
 	};
 
 	meshData.Indices32.assign(&i[0], &i[18]);
 
+	ComputeNormals(meshData);
+
 	return meshData;
 }
+
+
 
 GeometryGenerator::MeshData GeometryGenerator::CreateDiamond(float width, float height, float depth) {
 	MeshData meshData;
@@ -896,7 +932,8 @@ GeometryGenerator::MeshData GeometryGenerator::CreateDiamond(float width, float 
 	return meshData;
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreateTriPrism(float baseWidth, float height, float depth) {
+GeometryGenerator::MeshData GeometryGenerator::CreateTriPrism(float baseWidth, float height, float depth)
+{
 	MeshData meshData;
 
 	float w2 = 0.5f * baseWidth;
@@ -904,28 +941,49 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTriPrism(float baseWidth, f
 	float d2 = 0.5f * depth;
 
 	Vertex v[6] = {
-		Vertex(-w2, -h2, -d2,  0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 1.0f),
-		Vertex(w2, -h2, -d2,   0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  1.0f, 1.0f),
-		Vertex(0.0f, -h2, d2,  0.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.5f, 0.0f),
+		// Bottom triangle
+		Vertex(-w2, -h2, -d2,  0, -1, 0,  1, 0, 0,  0.0f, 1.0f), // 0
+		Vertex(w2, -h2, -d2,   0, -1, 0,  1, 0, 0,  1.0f, 1.0f), // 1
+		Vertex(0.0f, -h2,  d2, 0, -1, 0,  1, 0, 0,  0.5f, 0.0f), // 2
 
-		Vertex(-w2, h2, -d2,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f),
-		Vertex(w2, h2, -d2,   0.0f, 1.0f, 0.0f,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f),
-		Vertex(0.0f, h2, d2,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f, 0.0f,  0.5f, 0.0f)
+		// Top triangle
+		Vertex(-w2, h2, -d2,   0, 1, 0,  1, 0, 0,  0.0f, 1.0f),  // 3
+		Vertex(w2, h2, -d2,    0, 1, 0,  1, 0, 0,  1.0f, 1.0f),  // 4
+		Vertex(0.0f, h2,  d2,  0, 1, 0,  1, 0, 0,  0.5f, 0.0f)   // 5
 	};
 
 	meshData.Vertices.assign(&v[0], &v[6]);
 
+	// ✅ Tous les triangles sont maintenant dans le bon ordre (CCW)
 	uint32 i[24] = {
-		0, 1, 2,
+		// Bottom face
+		2, 1, 0,
 
-		3, 4, 5,
+		// Top face
+		5, 4, 3,
 
-		0, 1, 4,  0, 4, 3,
-		1, 2, 5,  1, 5, 4,
-		2, 0, 3,  2, 3, 5
+		// Back face
+		4, 1, 0,
+		4, 0, 3,
+
+		// Right face
+		5, 2, 1,
+		5, 1, 4,
+
+		// Left face
+		3, 0, 2,
+		3, 2, 5
 	};
 
 	meshData.Indices32.assign(&i[0], &i[24]);
 
+	ComputeNormals(meshData);
 	return meshData;
 }
+
+
+
+
+
+
+
