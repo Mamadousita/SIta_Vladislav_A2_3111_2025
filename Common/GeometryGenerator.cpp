@@ -952,9 +952,17 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTriPrism(float baseWidth, f
 		Vertex(0.0f, h2,  d2,  0, 1, 0,  1, 0, 0,  0.5f, 0.0f)   // 5
 	};
 
+	// Appliquer une rotation de 90° autour de l'axe X
+	XMMATRIX rotX = XMMatrixRotationX(XMConvertToRadians(90.0f));
+	for (int i = 0; i < 6; ++i)
+	{
+		XMVECTOR pos = XMLoadFloat3(&v[i].Position);
+		pos = XMVector3Transform(pos, rotX);
+		XMStoreFloat3(&v[i].Position, pos);
+	}
+
 	meshData.Vertices.assign(&v[0], &v[6]);
 
-	// ✅ Tous les triangles sont maintenant dans le bon ordre (CCW)
 	uint32 i[24] = {
 		// Bottom face
 		2, 1, 0,
@@ -978,6 +986,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTriPrism(float baseWidth, f
 	meshData.Indices32.assign(&i[0], &i[24]);
 
 	ComputeNormals(meshData);
+
 	return meshData;
 }
 
