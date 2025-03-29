@@ -940,55 +940,65 @@ GeometryGenerator::MeshData GeometryGenerator::CreateTriPrism(float baseWidth, f
 	float h2 = 0.5f * height;
 	float d2 = 0.5f * depth;
 
-	Vertex v[6] = {
+	// Vertices
+	std::vector<Vertex> vertices =
+	{
 		// Bottom triangle
 		Vertex(-w2, -h2, -d2,  0, -1, 0,  1, 0, 0,  0.0f, 1.0f), // 0
 		Vertex(w2, -h2, -d2,   0, -1, 0,  1, 0, 0,  1.0f, 1.0f), // 1
-		Vertex(0.0f, -h2,  d2, 0, -1, 0,  1, 0, 0,  0.5f, 0.0f), // 2
+		Vertex(0.0f, -h2, d2,  0, -1, 0,  1, 0, 0,  0.5f, 0.0f), // 2
 
 		// Top triangle
-		Vertex(-w2, h2, -d2,   0, 1, 0,  1, 0, 0,  0.0f, 1.0f),  // 3
-		Vertex(w2, h2, -d2,    0, 1, 0,  1, 0, 0,  1.0f, 1.0f),  // 4
-		Vertex(0.0f, h2,  d2,  0, 1, 0,  1, 0, 0,  0.5f, 0.0f)   // 5
-	};
-
-	// Appliquer une rotation de 90° autour de l'axe X
-	XMMATRIX rotX = XMMatrixRotationX(XMConvertToRadians(90.0f));
-	for (int i = 0; i < 6; ++i)
-	{
-		XMVECTOR pos = XMLoadFloat3(&v[i].Position);
-		pos = XMVector3Transform(pos, rotX);
-		XMStoreFloat3(&v[i].Position, pos);
-	}
-
-	meshData.Vertices.assign(&v[0], &v[6]);
-
-	uint32 i[24] = {
-		// Bottom face
-		2, 1, 0,
-
-		// Top face
-		5, 4, 3,
+		Vertex(-w2, h2, -d2,   0, 1, 0,   1, 0, 0,  0.0f, 1.0f), // 3
+		Vertex(w2, h2, -d2,    0, 1, 0,   1, 0, 0,  1.0f, 1.0f), // 4
+		Vertex(0.0f, h2, d2,   0, 1, 0,   1, 0, 0,  0.5f, 0.0f), // 5
 
 		// Back face
-		4, 1, 0,
-		4, 0, 3,
+		Vertex(-w2, -h2, -d2,  0, 0, -1, 1, 0, 0,  0.0f, 1.0f),  // 6
+		Vertex(w2, -h2, -d2,   0, 0, -1, 1, 0, 0,  1.0f, 1.0f),  // 7
+		Vertex(-w2, h2, -d2,   0, 0, -1, 1, 0, 0,  0.0f, 0.0f),  // 8
+		Vertex(w2, h2, -d2,    0, 0, -1, 1, 0, 0,  1.0f, 0.0f),  // 9
 
 		// Right face
-		5, 2, 1,
-		5, 1, 4,
+		Vertex(w2, -h2, -d2,   0.87f, 0, 0.5f, 1, 0, 0,  0.0f, 1.0f),  // 10
+		Vertex(0.0f, -h2, d2,  0.87f, 0, 0.5f, 1, 0, 0,  1.0f, 1.0f),  // 11
+		Vertex(w2, h2, -d2,    0.87f, 0, 0.5f, 1, 0, 0,  0.0f, 0.0f),  // 12
+		Vertex(0.0f, h2, d2,   0.87f, 0, 0.5f, 1, 0, 0,  1.0f, 0.0f),  // 13
 
 		// Left face
-		3, 0, 2,
-		3, 2, 5
+		Vertex(0.0f, -h2, d2,  -0.87f, 0, 0.5f, 1, 0, 0,  0.0f, 1.0f),  // 14
+		Vertex(-w2, -h2, -d2,  -0.87f, 0, 0.5f, 1, 0, 0,  1.0f, 1.0f),  // 15
+		Vertex(0.0f, h2, d2,   -0.87f, 0, 0.5f, 1, 0, 0,  0.0f, 0.0f),  // 16
+		Vertex(-w2, h2, -d2,   -0.87f, 0, 0.5f, 1, 0, 0,  1.0f, 0.0f)   // 17
 	};
 
-	meshData.Indices32.assign(&i[0], &i[24]);
+	meshData.Vertices = vertices;
 
-	ComputeNormals(meshData);
+	std::vector<std::uint32_t> indices =
+	{
+		// Bottom
+		0, 1, 2,
 
+		// Top
+		5, 4, 3,
+
+		// Back
+		6, 7, 9,
+		6, 9, 8,
+
+		// Right
+		10, 11, 13,
+		10, 13, 12,
+
+		// Left
+		14, 15, 17,
+		14, 17, 16
+	};
+
+	meshData.Indices32 = indices;
 	return meshData;
 }
+
 
 
 

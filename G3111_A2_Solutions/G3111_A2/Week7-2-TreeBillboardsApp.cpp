@@ -505,6 +505,7 @@ void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[1].Direction = { -0.5f, -1.0f, -0.5f }; // Secondary soft light
 	mMainPassCB.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };      // Slightly dimmer fill light
 
+
 	// Small Fire Point Lights on Pillars
 	XMFLOAT3 firePositions[4] = {
 	{  12.0f, 2.0f,  12.0f },
@@ -515,13 +516,31 @@ void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 
 	for (int i = 0; i < 4; i++)
 	{
-		float flicker = 0.3f + 0.2f */* sinf(gt.TotalTime() **/ (8.0f + i) + i * 3.0f; // Randomized flicker
+		float flicker = 0.3f + 0.2f * sinf(gt.TotalTime() / (8.0f + i) + i * 3.0f);
 
-		mMainPassCB.Lights[i + 2].Position = firePositions[i];
-		mMainPassCB.Lights[i + 2].Strength = { 0.0f * flicker, 0.45f* flicker, 0.75f * flicker }; // Bright orange
-		mMainPassCB.Lights[i + 2].FalloffStart = 0.005f;  // Small size
-		mMainPassCB.Lights[i + 2].FalloffEnd = 0.06f;    // Quick falloff for small fire effect
+		// Spotlight
+		if (i == 0)
+		{
+			mMainPassCB.Lights[2].Position = XMFLOAT3(-2.0f, 9.0f, 7.0f); 
+			mMainPassCB.Lights[2].Direction = XMFLOAT3(0.0f, -1.0f, 0.0f); 
+			mMainPassCB.Lights[2].Strength = XMFLOAT3(0.2f, 0.1f, 0.05f);
+
+			mMainPassCB.Lights[2].FalloffStart = 0.1f;
+			mMainPassCB.Lights[2].FalloffEnd = 0.5f;
+
+			mMainPassCB.Lights[2].SpotPower = 10.0f; 
+
+		}
+		else
+		{
+			// lights
+			mMainPassCB.Lights[i + 2].Position = firePositions[i];
+			mMainPassCB.Lights[i + 2].Strength = { 0.0f * flicker, 0.45f * flicker, 0.75f * flicker };
+			mMainPassCB.Lights[i + 2].FalloffStart = 0.005f;
+			mMainPassCB.Lights[i + 2].FalloffEnd = 0.06f;
+		}
 	}
+
 
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
@@ -941,6 +960,9 @@ void TreeBillboardsApp::BuildShapeGeometry()
 
 	GeometryGenerator::MeshData triPrism = geoGen.CreateTriPrism(1.0f, 1.0f, 1.0f);
 
+	GeometryGenerator::MeshData wedge = geoGen.CreateWedge(1.0f, 1.0f, 1.0f, 1);
+
+
 
 	//step2
 	UINT boxVertexOffset = 0;
@@ -957,6 +979,10 @@ void TreeBillboardsApp::BuildShapeGeometry()
 
 	UINT pyramidVertexOffset = (UINT)triPrism.Vertices.size() + prismVertexOffset;
 	UINT pyramidIndexOffset = (UINT)triPrism.Indices32.size() + prismIndexOffset;
+
+	UINT wedgeVertexOffset = (UINT)pyramid.Vertices.size() + pyramidVertexOffset;
+	UINT wedgeIndexOffset = (UINT)pyramid.Indices32.size() + pyramidIndexOffset;
+
 
 
 	SubmeshGeometry boxSubmesh;
@@ -990,6 +1016,12 @@ void TreeBillboardsApp::BuildShapeGeometry()
 	pyramidSubmesh.StartIndexLocation = pyramidIndexOffset;
 	pyramidSubmesh.BaseVertexLocation = pyramidVertexOffset;
 
+	SubmeshGeometry wedgeSubmesh;
+	wedgeSubmesh.IndexCount = (UINT)wedge.Indices32.size();
+	wedgeSubmesh.StartIndexLocation = wedgeIndexOffset;
+	wedgeSubmesh.BaseVertexLocation = wedgeVertexOffset;
+
+
 
 	auto totalVertexCount =
 		box.Vertices.size() +
@@ -997,7 +1029,9 @@ void TreeBillboardsApp::BuildShapeGeometry()
 		cylinder.Vertices.size() +
 		cone.Vertices.size() +
 		triPrism.Vertices.size()+
-		pyramid.Vertices.size();
+		pyramid.Vertices.size()+
+		wedge.Vertices.size();
+	;
 
 
 
@@ -1048,6 +1082,14 @@ void TreeBillboardsApp::BuildShapeGeometry()
 		vertices[k].TexC = pyramid.Vertices[i].TexC;
 	}
 
+	for (size_t i = 0; i < wedge.Vertices.size(); ++i, ++k)
+	{
+		vertices[k].Pos = wedge.Vertices[i].Position;
+		vertices[k].Normal = wedge.Vertices[i].Normal;
+		vertices[k].TexC = wedge.Vertices[i].TexC;
+	}
+
+
 	std::vector<std::uint16_t> indices;
 	indices.insert(indices.end(), std::begin(box.GetIndices16()), std::end(box.GetIndices16()));
 	indices.insert(indices.end(), std::begin(sphere.GetIndices16()), std::end(sphere.GetIndices16()));
@@ -1055,6 +1097,8 @@ void TreeBillboardsApp::BuildShapeGeometry()
 	indices.insert(indices.end(), std::begin(cone.GetIndices16()), std::end(cone.GetIndices16()));
 	indices.insert(indices.end(), std::begin(triPrism.GetIndices16()), std::end(triPrism.GetIndices16()));
 	indices.insert(indices.end(), std::begin(pyramid.GetIndices16()), std::end(pyramid.GetIndices16()));
+	indices.insert(indices.end(), std::begin(wedge.GetIndices16()), std::end(wedge.GetIndices16()));
+
 
 
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
@@ -1086,40 +1130,40 @@ void TreeBillboardsApp::BuildShapeGeometry()
 	geo->DrawArgs["cylinder"] = cylinderSubmesh;
 	geo->DrawArgs["cone"] = coneSubmesh;
 	geo->DrawArgs["prism"] = prismSubmesh;
-	geo->DrawArgs["pyramid"] = pyramidSubmesh; 
+	geo->DrawArgs["pyramid"] = pyramidSubmesh;
+	geo->DrawArgs["wedge"] = wedgeSubmesh;
+
 
 	mGeometries["shapeGeo"] = std::move(geo);
 }
 
 void TreeBillboardsApp::BuildTreeSpritesGeometry()
 {
-	//step5
 	struct TreeSpriteVertex
 	{
 		XMFLOAT3 Pos;
 		XMFLOAT2 Size;
 	};
 
-	static const int treeCount = 10;
-	std::array<TreeSpriteVertex, 10> vertices;
-	for (UINT i = 0; i < treeCount; ++i)
-	{
-		float x = MathHelper::RandF(-45.0f, 45.0f);
-		float z = MathHelper::RandF(-45.0f, 45.0f);
-		float y = GetHillsHeight(x, z);
+	static const int treeCount = 25;
+	std::array<TreeSpriteVertex, treeCount> vertices;
+	std::array<std::uint16_t, treeCount> indices;
 
-		// Move tree slightly above land height.
-		y += 8.0f;
+	for (int i = 0; i < treeCount; ++i)
+	{
+		indices[i] = i;
+
+		float x, z;
+		do {
+			x = MathHelper::RandF(-45.0f, 45.0f);
+			z = MathHelper::RandF(-45.0f, 45.0f);
+		} while (fabs(x) < 18.0f && fabs(z) < 18.0f);
+
+		float y = GetHillsHeight(x, z) + 8.0f;
 
 		vertices[i].Pos = XMFLOAT3(x, y, z);
-		vertices[i].Size = XMFLOAT2(20.0f, 20.0f);
+		vertices[i].Size = XMFLOAT2(MathHelper::RandF(18.0f, 24.0f), MathHelper::RandF(18.0f, 24.0f));
 	}
-
-	std::array<std::uint16_t, 10> indices =
-	{
-		0, 1, 2, 3, 4, 5, 6, 7,
-		8, 9
-	};
 
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(TreeSpriteVertex);
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
@@ -1149,12 +1193,10 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 	submesh.StartIndexLocation = 0;
 	submesh.BaseVertexLocation = 0;
 
-
 	geo->DrawArgs["points"] = submesh;
-
-
 	mGeometries["treeSpritesGeo"] = std::move(geo);
 }
+
 
 void TreeBillboardsApp::BuildPSOs()
 {
@@ -1340,16 +1382,16 @@ void TreeBillboardsApp::BuildMaterials()
 	auto sphereMat = std::make_unique<Material>();
 	sphereMat->Name = "sphereDesign";
 	sphereMat->MatCBIndex = 9;
-	sphereMat->DiffuseSrvHeapIndex = 9; // Change si tu veux une texture spécifique
-	sphereMat->DiffuseAlbedo = XMFLOAT4(0.8f, 0.3f, 0.3f, 1.0f); // Rouge doux
+	sphereMat->DiffuseSrvHeapIndex = 9;
+	sphereMat->DiffuseAlbedo = XMFLOAT4(0.8f, 0.3f, 0.3f, 1.0f); 
 	sphereMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
 	sphereMat->Roughness = 0.2f;
 
 	auto pyramidMat = std::make_unique<Material>();
 	pyramidMat->Name = "pyramidDesign";
 	pyramidMat->MatCBIndex = 10;
-	pyramidMat->DiffuseSrvHeapIndex = 10; // Change si nécessaire
-	pyramidMat->DiffuseAlbedo = XMFLOAT4(0.9f, 0.85f, 0.2f, 1.0f); // Jaune doré
+	pyramidMat->DiffuseSrvHeapIndex = 10; 
+	pyramidMat->DiffuseAlbedo = XMFLOAT4(0.9f, 0.85f, 0.2f, 1.0f); 
 	pyramidMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	pyramidMat->Roughness = 0.3f;
 
@@ -1604,8 +1646,27 @@ void TreeBillboardsApp::BuildRenderItems()
 	mAllRitems.push_back(std::move(cone4));
 
 	// === House 2 (Triangular Prism Roof) ===
+	auto wedgeRoof = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&wedgeRoof->World,
+	XMMatrixScaling(6.0f, 2.0f, 6.0f)*
+	XMMatrixRotationX(-90)* 
+	XMMatrixTranslation(-2.0f, 12.0f, 40.0f));
+	wedgeRoof->ObjCBIndex = 21;
+	wedgeRoof->Mat = mMaterials["prismDesign"].get();
+	wedgeRoof->Geo = mGeometries["shapeGeo"].get();
+	wedgeRoof->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	wedgeRoof->IndexCount = wedgeRoof->Geo->DrawArgs["wedge"].IndexCount;
+	wedgeRoof->StartIndexLocation = wedgeRoof->Geo->DrawArgs["wedge"].StartIndexLocation;
+	wedgeRoof->BaseVertexLocation = wedgeRoof->Geo->DrawArgs["wedge"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(wedgeRoof.get());
+	mAllRitems.push_back(std::move(wedgeRoof));
+
+
 	auto house2Roof = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&house2Roof->World, XMMatrixScaling(6.0f, 4.0f, 10.0f)*	/*XMMatrixRotationX(XMConvertToRadians(90.0f))* XMMatrixRotationY(XMConvertToRadians(-90.0f))**/ XMMatrixTranslation(-2.0f, 13.2f, 7.0f));
+	XMStoreFloat4x4(&house2Roof->World,
+	XMMatrixScaling(6.0f, 4.0f, 10.0f)*
+	XMMatrixRotationX(-XM_PIDIV2)*  
+	XMMatrixTranslation(-20.0f, 13.2f, 40.0f));
 	house2Roof->ObjCBIndex = 14;
 	house2Roof->Mat = mMaterials["prismDesign"].get(); 
 	house2Roof->Geo = mGeometries["shapeGeo"].get();
@@ -1630,14 +1691,14 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	// === Sphere ===
 	auto sphereRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&sphereRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f)* XMMatrixTranslation(-8.0f, 2.0f, 0.0f));
+	XMStoreFloat4x4(&sphereRitem->World, XMMatrixScaling(15.0f, 3.0f, 15.0f)* XMMatrixTranslation(-15.0f, 20.0f, 11.0f));
 	sphereRitem->ObjCBIndex = 16;
 	sphereRitem->Mat = mMaterials["boxDesign"].get(); 
 	sphereRitem->Geo = mGeometries["shapeGeo"].get();
 	sphereRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	sphereRitem->IndexCount = sphereRitem->Geo->DrawArgs["cylinder"].IndexCount;
-	sphereRitem->StartIndexLocation = sphereRitem->Geo->DrawArgs["cylinder"].StartIndexLocation;
-	sphereRitem->BaseVertexLocation = sphereRitem->Geo->DrawArgs["cylinder"].BaseVertexLocation;
+	sphereRitem->IndexCount = sphereRitem->Geo->DrawArgs["sphere"].IndexCount;
+	sphereRitem->StartIndexLocation = sphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
+	sphereRitem->BaseVertexLocation = sphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(sphereRitem.get());
 	
 
@@ -1652,6 +1713,36 @@ void TreeBillboardsApp::BuildRenderItems()
 	pyramidRitem->StartIndexLocation = pyramidRitem->Geo->DrawArgs["pyramid"].StartIndexLocation;
 	pyramidRitem->BaseVertexLocation = pyramidRitem->Geo->DrawArgs["pyramid"].BaseVertexLocation;
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(pyramidRitem.get());
+
+	// === Pyramid Roof for House 2 ===
+	auto pyramidRoof2 = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(
+	&pyramidRoof2->World,
+	XMMatrixScaling(12.0f, 8.0f, 18.0f)*  
+	XMMatrixTranslation(-2.0f, 13.0f, 7.0f) 
+	);
+	pyramidRoof2->ObjCBIndex = 23;
+	pyramidRoof2->Mat = mMaterials["prismDesign"].get(); 
+	pyramidRoof2->Geo = mGeometries["shapeGeo"].get();
+	pyramidRoof2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	pyramidRoof2->IndexCount = pyramidRoof2->Geo->DrawArgs["pyramid"].IndexCount;
+	pyramidRoof2->StartIndexLocation = pyramidRoof2->Geo->DrawArgs["pyramid"].StartIndexLocation;
+	pyramidRoof2->BaseVertexLocation = pyramidRoof2->Geo->DrawArgs["pyramid"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(pyramidRoof2.get());
+	mAllRitems.push_back(std::move(pyramidRoof2));
+
+	// === Cylinder === //
+	auto cylinder00 = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&cylinder00->World, XMMatrixScaling(2.0f, 7.0f, 2.0f)* XMMatrixTranslation(-15.0f, 8.0f, 11.0f));
+	cylinder00->ObjCBIndex = 22;
+	cylinder00->Mat = mMaterials["cylinderDesign"].get();
+	cylinder00->Geo = mGeometries["shapeGeo"].get();
+	cylinder00->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	cylinder00->IndexCount = cylinder00->Geo->DrawArgs["cylinder"].IndexCount;
+	cylinder00->StartIndexLocation = cylinder00->Geo->DrawArgs["cylinder"].StartIndexLocation;
+	cylinder00->BaseVertexLocation = cylinder00->Geo->DrawArgs["cylinder"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(cylinder00.get());
+	mAllRitems.push_back(std::move(cylinder00));
 	
 
 
@@ -1761,22 +1852,27 @@ std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> TreeBillboardsApp::GetStaticSam
 
 float TreeBillboardsApp::GetHillsHeight(float x, float z)const
 {
-	return 0.25f * (z * sinf(0.1f * x) + x * cosf(0.1f * z));\
+	float radius = 17.0f; 
 
-	/*return 0.0f;*/
+	
+	if (sqrt(x * x + z * z) < radius)
+		return 0.0f;
+
+	
+	return 0.07f * (z * sinf(0.1f * x) + x * cosf(0.1f * z));
+
 }
 
 XMFLOAT3 TreeBillboardsApp::GetHillsNormal(float x, float z)const
 {
 	// n = (-df/dx, 1, -df/dz)
 	XMFLOAT3 n(
-		-0.03f * z * cosf(0.1f * x) - 0.3f * cosf(0.1f * z),
+		-0.01f * z * cosf(0.1f * x) - 0.1f * cosf(0.1f * z),
 		1.0f,
-		-0.3f * sinf(0.1f * x) + 0.03f * x * sinf(0.1f * z));
+		-0.1f * sinf(0.1f * x) + 0.01f * x * sinf(0.1f * z));
 
 	XMVECTOR unitNormal = XMVector3Normalize(XMLoadFloat3(&n));
 	XMStoreFloat3(&n, unitNormal);
-
 	return n;
 	//return XMFLOAT3(0.0f, 1.0f, 0.0f);
 }
