@@ -14,6 +14,7 @@
 #include "../../Common/MathHelper.h"
 #include "../../Common/UploadBuffer.h"
 #include "../../Common/GeometryGenerator.h"
+#include "../../Common/Camera.h"
 #include "FrameResource.h"
 #include "Waves.h"
 
@@ -31,6 +32,9 @@ const int gNumFrameResources = 3;
 struct RenderItem
 {
 	RenderItem() = default;
+	//step2 
+	RenderItem(const RenderItem& rhs) = delete;
+
 
 	// World matrix of the shape that describes the object's local space
 	// relative to the world space, which defines the position, orientation,
@@ -107,6 +111,7 @@ private:
 	void BuildPSOs();
 	void BuildFrameResources();
 	void BuildMaterials();
+	void BuildMazeWalls(int& objCBIndex);
 	void BuildRenderItems();
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
 
@@ -148,14 +153,18 @@ private:
 
 	PassConstants mMainPassCB;
 
-	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
+
+	//step3 
+
+	/*XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
 	XMFLOAT4X4 mView = MathHelper::Identity4x4();
 	XMFLOAT4X4 mProj = MathHelper::Identity4x4();
 
 	float mTheta = 1.5f * XM_PI;
 	float mPhi = XM_PIDIV2 - 0.1f;
-	float mRadius = 50.0f;
+	float mRadius = 50.0f;*/
 
+	Camera mCamera;
 	POINT mLastMousePos;
 };
 
@@ -205,6 +214,10 @@ bool TreeBillboardsApp::Initialize()
 	// so we have to query this information.
 	mCbvSrvDescriptorSize = md3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+
+	//step---your starting position
+	mCamera.SetPosition(0.0f, 2.0f, -15.0f);
+
 	mWaves = std::make_unique<Waves>(128, 128, 1.0f, 0.03f, 4.0f, 0.2f);
 
 	LoadTextures();
@@ -216,6 +229,8 @@ bool TreeBillboardsApp::Initialize()
 	BuildShapeGeometry();
 	BuildTreeSpritesGeometry();
 	BuildMaterials();
+	int nextObjIndex = (int)mAllRitems.size();
+	BuildMazeWalls(nextObjIndex);
 	BuildRenderItems();
 	BuildFrameResources();
 	BuildPSOs();
@@ -235,9 +250,13 @@ void TreeBillboardsApp::OnResize()
 {
 	D3DApp::OnResize();
 
-	// The window resized, so update the aspect ratio and recompute the projection matrix.
-	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
-	XMStoreFloat4x4(&mProj, P);
+	//step5
+	//// The window resized, so update the aspect ratio and recompute the projection matrix.
+	//XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
+	//XMStoreFloat4x4(&mProj, P);
+
+	//step6
+	mCamera.SetLens(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
 }
 
 void TreeBillboardsApp::Update(const GameTimer& gt)
@@ -352,28 +371,35 @@ void TreeBillboardsApp::OnMouseMove(WPARAM btnState, int x, int y)
 {
 	if ((btnState & MK_LBUTTON) != 0)
 	{
+		//mouse sensitivity'
+		// 
 		// Make each pixel correspond to a quarter of a degree.
 		float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
 		float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
 
-		// Update angles based on input to orbit camera around box.
-		mTheta += dx;
-		mPhi += dy;
+		//step 7
+	//	// Update angles based on input to orbit camera around box.
+	//	mTheta += dx;
+	//	mPhi += dy;
 
-		// Restrict the angle mPhi.
-		mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
-	}
-	else if ((btnState & MK_RBUTTON) != 0)
-	{
-		// Make each pixel correspond to 0.2 unit in the scene.
-		float dx = 0.2f * static_cast<float>(x - mLastMousePos.x);
-		float dy = 0.2f * static_cast<float>(y - mLastMousePos.y);
+	//	// Restrict the angle mPhi.
+	//	mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
+	//}
+	//else if ((btnState & MK_RBUTTON) != 0)
+	//{
+	//	// Make each pixel correspond to 0.2 unit in the scene.
+	//	float dx = 0.2f * static_cast<float>(x - mLastMousePos.x);
+	//	float dy = 0.2f * static_cast<float>(y - mLastMousePos.y);
 
-		// Update the camera radius based on input.
-		mRadius += dx - dy;
+	//	// Update the camera radius based on input.
+	//	mRadius += dx - dy;
 
-		// Restrict the radius.
-		mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
+	//	// Restrict the radius.
+	//	mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
+	//}
+
+		mCamera.Pitch(dy);
+		mCamera.RotateY(dx);
 	}
 
 	mLastMousePos.x = x;
@@ -382,22 +408,40 @@ void TreeBillboardsApp::OnMouseMove(WPARAM btnState, int x, int y)
 
 void TreeBillboardsApp::OnKeyboardInput(const GameTimer& gt)
 {
+	//step3: we handle keyboard input to move the camera:
+
+	const float dt = gt.DeltaTime();
+
+	//GetAsyncKeyState returns a short (2 bytes)
+	if (GetAsyncKeyState('W') & 0x8000) //most significant bit (MSB) is 1 when key is pressed (1000 000 000 000)
+		mCamera.Walk(10.0f * dt);
+
+	if (GetAsyncKeyState('S') & 0x8000)
+		mCamera.Walk(-10.0f * dt);
+
+	if (GetAsyncKeyState('A') & 0x8000)
+		mCamera.Strafe(-10.0f * dt);
+
+	if (GetAsyncKeyState('D') & 0x8000)
+		mCamera.Strafe(10.0f * dt);
+
+	mCamera.UpdateViewMatrix();
 }
 
 void TreeBillboardsApp::UpdateCamera(const GameTimer& gt)
 {
-	// Convert Spherical to Cartesian coordinates.
-	mEyePos.x = mRadius * sinf(mPhi) * cosf(mTheta);
-	mEyePos.z = mRadius * sinf(mPhi) * sinf(mTheta);
-	mEyePos.y = mRadius * cosf(mPhi);
+	//// Convert Spherical to Cartesian coordinates.
+	//mEyePos.x = mRadius * sinf(mPhi) * cosf(mTheta);
+	//mEyePos.z = mRadius * sinf(mPhi) * sinf(mTheta);
+	//mEyePos.y = mRadius * cosf(mPhi);
 
-	// Build the view matrix.
-	XMVECTOR pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
-	XMVECTOR target = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	//// Build the view matrix.
+	//XMVECTOR pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
+	//XMVECTOR target = XMVectorZero();
+	//XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
-	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
-	XMStoreFloat4x4(&mView, view);
+	//XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
+	//XMStoreFloat4x4(&mView, view);
 }
 
 void TreeBillboardsApp::AnimateMaterials(const GameTimer& gt)
@@ -476,8 +520,13 @@ void TreeBillboardsApp::UpdateMaterialCBs(const GameTimer& gt)
 void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 {
 	// Standard transformation calculations (keep as is)
-	XMMATRIX view = XMLoadFloat4x4(&mView);
-	XMMATRIX proj = XMLoadFloat4x4(&mProj);
+
+	//step8
+	XMMATRIX view = mCamera.GetView();
+	XMMATRIX proj = mCamera.GetProj();
+
+	/*XMMATRIX view = XMLoadFloat4x4(&mView);
+	XMMATRIX proj = XMLoadFloat4x4(&mProj);*/
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 	XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
 	XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
@@ -490,7 +539,10 @@ void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 	XMStoreFloat4x4(&mMainPassCB.ViewProj, XMMatrixTranspose(viewProj));
 	XMStoreFloat4x4(&mMainPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
 
-	mMainPassCB.EyePosW = mEyePos;
+	//step9
+	mMainPassCB.EyePosW = mCamera.GetPosition3f();
+
+	/*mMainPassCB.EyePosW = mEyePos;*/
 	mMainPassCB.RenderTargetSize = XMFLOAT2((float)mClientWidth, (float)mClientHeight);
 	mMainPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
 	mMainPassCB.NearZ = 1.0f;
@@ -1410,6 +1462,58 @@ void TreeBillboardsApp::BuildMaterials()
 	mMaterials["pyramidDesign"] = std::move(pyramidMat);
 }
 
+void TreeBillboardsApp::BuildMazeWalls(int& objCBIndexStart)
+{
+	struct WallData {
+		XMFLOAT3 position;
+		XMFLOAT3 scale;
+	};
+
+	std::vector<WallData> walls = {
+		// MURS EXTERNES (déjà validés)
+		  {{ 34.0f, 2.0f, -10.0f }, { 3.6f, 1.5f, 0.2f }},  // haut
+		  {{ 34.0f, 2.0f,  20.0f }, { 3.6f, 1.5f, 0.2f }},  // bas
+		  {{ 20.5f, 2.0f,  5.0f }, { 0.2f, 1.5f, 3.6f }},   // gauche
+		  {{ 47.6f, 2.0f,  5.0f }, { 0.2f, 1.5f, 3.6f }},   // droit
+
+		  // MURS INTERNES - zone gauche
+		  {{ 23.0f, 2.0f,  2.0f }, { 2.0f, 1.5f, 0.2f }},
+		  {{ 25.0f, 2.0f,  4.0f }, { 0.2f, 1.5f, 2.0f }},
+		 /* {{ 25.0f, 2.0f,  8.0f }, { 0.2f, 1.5f, 2.0f }},*/
+		  //{{ 23.0f, 2.0f, 10.0f }, { 2.0f, 1.5f, 0.2f }},
+		  //{{ 21.0f, 2.0f,  8.0f }, { 0.2f, 1.5f, 2.0f }},
+		  //{{ 21.0f, 2.0f,  5.0f }, { 2.0f, 1.5f, 0.2f }},
+
+		  //// MURS INTERNES - zone centrale
+		  //{{ 30.0f, 2.0f,  0.0f }, { 0.2f, 1.5f, 4.0f }},
+		  //{{ 32.0f, 2.0f, -2.0f }, { 2.0f, 1.5f, 0.2f }},
+
+		  //// MURS INTERNES - zone droite
+		  //{{ 40.0f, 2.0f,  2.0f }, { 0.2f, 1.5f, 3.0f }},
+		  //{{ 42.0f, 2.0f,  4.0f }, { 2.0f, 1.5f, 0.2f }},
+		  //{{ 44.0f, 2.0f,  7.0f }, { 0.2f, 1.5f, 6.0f }},
+	};
+
+	for (auto& wall : walls)
+	{
+		auto mazeWall = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&mazeWall->World,
+			XMMatrixScaling(wall.scale.x, wall.scale.y, wall.scale.z) *
+			XMMatrixTranslation(wall.position.x, wall.position.y, wall.position.z));
+
+		mazeWall->ObjCBIndex = objCBIndexStart++;
+		mazeWall->Mat = mMaterials["boxDesign"].get();
+		mazeWall->Geo = mGeometries["shapeGeo"].get();
+		mazeWall->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		mazeWall->IndexCount = mazeWall->Geo->DrawArgs["box"].IndexCount;
+		mazeWall->StartIndexLocation = mazeWall->Geo->DrawArgs["box"].StartIndexLocation;
+		mazeWall->BaseVertexLocation = mazeWall->Geo->DrawArgs["box"].BaseVertexLocation;
+
+		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(mazeWall.get());
+		mAllRitems.push_back(std::move(mazeWall));
+	}
+}
+
 
 
 void TreeBillboardsApp::BuildRenderItems()
@@ -1527,7 +1631,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === House 2 (Base Box) ===
 	auto house2Base = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&house2Base->World, XMMatrixScaling(1.0f, 1.0f, 2.0f) * XMMatrixTranslation(-2.0f, 5.0f, 7.0f));
-	house2Base->ObjCBIndex = 20;
+	house2Base->ObjCBIndex = 21;
 	house2Base->Mat = mMaterials["boxDesign"].get();
 	house2Base->Geo = mGeometries["shapeGeo"].get();
 	house2Base->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1651,7 +1755,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	XMMatrixScaling(6.0f, 2.0f, 6.0f)*
 	XMMatrixRotationX(-90)* 
 	XMMatrixTranslation(-2.0f, 12.0f, 40.0f));
-	wedgeRoof->ObjCBIndex = 21;
+	wedgeRoof->ObjCBIndex = 20;
 	wedgeRoof->Mat = mMaterials["prismDesign"].get();
 	wedgeRoof->Geo = mGeometries["shapeGeo"].get();
 	wedgeRoof->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1751,6 +1855,11 @@ void TreeBillboardsApp::BuildRenderItems()
 	mAllRitems.push_back(std::move(treeSpritesRitem));
 	mAllRitems.push_back(std::move(sphereRitem));
 	mAllRitems.push_back(std::move(pyramidRitem));
+
+
+	int objCBIndex = 24; // ou selon le dernier utilisé
+	BuildMazeWalls(objCBIndex);
+
 }
 void TreeBillboardsApp::BuildFrameResources()
 {
