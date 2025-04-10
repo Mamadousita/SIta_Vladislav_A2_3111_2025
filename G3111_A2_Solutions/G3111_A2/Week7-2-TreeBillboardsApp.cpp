@@ -216,7 +216,7 @@ bool TreeBillboardsApp::Initialize()
 
 
 	//step---your starting position
-	mCamera.SetPosition(0.0f, 2.0f, -15.0f);
+	mCamera.SetPosition(34.0f, 15.0f, -10.0f);
 
 	mWaves = std::make_unique<Waves>(128, 128, 1.0f, 0.03f, 4.0f, 0.2f);
 
@@ -414,16 +414,16 @@ void TreeBillboardsApp::OnKeyboardInput(const GameTimer& gt)
 
 	//GetAsyncKeyState returns a short (2 bytes)
 	if (GetAsyncKeyState('W') & 0x8000) //most significant bit (MSB) is 1 when key is pressed (1000 000 000 000)
-		mCamera.Walk(10.0f * dt);
+		mCamera.Walk(25.0f * dt);
 
 	if (GetAsyncKeyState('S') & 0x8000)
-		mCamera.Walk(-10.0f * dt);
+		mCamera.Walk(-25.0f * dt);
 
 	if (GetAsyncKeyState('A') & 0x8000)
-		mCamera.Strafe(-10.0f * dt);
+		mCamera.Strafe(-25.0f * dt);
 
 	if (GetAsyncKeyState('D') & 0x8000)
-		mCamera.Strafe(10.0f * dt);
+		mCamera.Strafe(25.0f * dt);
 
 	mCamera.UpdateViewMatrix();
 }
@@ -625,13 +625,16 @@ void TreeBillboardsApp::UpdateWaves(const GameTimer& gt)
 	auto currWavesVB = mCurrFrameResource->WavesVB.get();
 	for (int i = 0; i < mWaves->VertexCount(); ++i)
 	{
-		Vertex v;
+		XMFLOAT3 pos = mWaves->Position(i);
 
-		v.Pos = mWaves->Position(i);
+		
+		if (pos.x > 20.0f && pos.x < 48.0f && pos.z > -10.0f && pos.z < 20.0f)
+			continue;
+
+		Vertex v;
+		v.Pos = pos;
 		v.Normal = mWaves->Normal(i);
 
-		// Derive tex-coords from position by 
-		// mapping [-w/2,w/2] --> [0,1]
 		v.TexC.x = 0.5f + v.Pos.x / mWaves->Width();
 		v.TexC.y = 0.5f - v.Pos.z / mWaves->Depth();
 
@@ -1209,7 +1212,11 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 		do {
 			x = MathHelper::RandF(-45.0f, 45.0f);
 			z = MathHelper::RandF(-45.0f, 45.0f);
-		} while (fabs(x) < 18.0f && fabs(z) < 18.0f);
+		} while (
+			(x > 20.0f && x < 48.0f && z > -10.0f && z < 20.0f) // exclusion maze
+			|| (fabs(x) < 18.0f && fabs(z) < 18.0f)             // exclusion zone centrale
+			);
+
 
 		float y = GetHillsHeight(x, z) + 8.0f;
 
@@ -1473,22 +1480,26 @@ void TreeBillboardsApp::BuildMazeWalls(int& objCBIndexStart)
 		// MURS EXTERNES (déjà validés)
 		  {{ 34.0f, 2.0f, -10.0f }, { 3.6f, 1.5f, 0.2f }},  // haut
 		  {{ 34.0f, 2.0f,  20.0f }, { 3.6f, 1.5f, 0.2f }},  // bas
-		  {{ 20.5f, 2.0f,  5.0f }, { 0.2f, 1.5f, 3.6f }},   // gauche
-		  {{ 47.6f, 2.0f,  5.0f }, { 0.2f, 1.5f, 3.6f }},   // droit
+		  {{ 20.5f, 2.0f,  9.0f }, { 0.2f, 1.5f, 2.8f }},   // gauche
+		  {{ 47.6f, 2.0f,  9.0f }, { 0.2f, 1.5f, 2.8f }},   // droit
 
 		  // MURS INTERNES - zone gauche
-		  {{ 23.0f, 2.0f,  2.0f }, { 2.0f, 1.5f, 0.2f }},
-		  {{ 25.0f, 2.0f,  4.0f }, { 0.2f, 1.5f, 2.0f }},
-		 /* {{ 25.0f, 2.0f,  8.0f }, { 0.2f, 1.5f, 2.0f }},*/
-		  //{{ 23.0f, 2.0f, 10.0f }, { 2.0f, 1.5f, 0.2f }},
-		  //{{ 21.0f, 2.0f,  8.0f }, { 0.2f, 1.5f, 2.0f }},
+		  {{ 25.0f, 2.0f,  2.0f }, { 1.5f, 1.5f, 0.2f }},
+		  //vertical 2
+		  {{ 34.0f, 2.0f,  0.0f }, { 0.2f, 1.5f, 2.5f }},
+		  //vertical 1
+		  {{ 27.0f, 2.0f,  6.0f }, { 0.2f, 1.5f, 2.0f }},
+		  //horizontal 2
+		  {{ 37.0f, 2.0f, 8.0f }, { 1.3f, 1.5f, 0.2f }},
+		  //vertical 3
+		  {{ 41.0f, 2.0f,  5.0f }, { 0.2f, 1.5f, 2.0f }},
 		  //{{ 21.0f, 2.0f,  5.0f }, { 2.0f, 1.5f, 0.2f }},
 
-		  //// MURS INTERNES - zone centrale
-		  //{{ 30.0f, 2.0f,  0.0f }, { 0.2f, 1.5f, 4.0f }},
+		  //// MURS INTERNES
+		  //{{ 30.0f, 2.0f,  0.0f }, { 0.2f, 1.5f, 4.0f }}
 		  //{{ 32.0f, 2.0f, -2.0f }, { 2.0f, 1.5f, 0.2f }},
 
-		  //// MURS INTERNES - zone droite
+		  //// MURS INTERNES 
 		  //{{ 40.0f, 2.0f,  2.0f }, { 0.2f, 1.5f, 3.0f }},
 		  //{{ 42.0f, 2.0f,  4.0f }, { 2.0f, 1.5f, 0.2f }},
 		  //{{ 44.0f, 2.0f,  7.0f }, { 0.2f, 1.5f, 6.0f }},
@@ -1565,7 +1576,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	// === Box Wall Right ===
 	auto boxWall2 = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxWall2->World, XMMatrixScaling(0.25f, 1.4f, 3.7f) * XMMatrixTranslation(7.0f, 5.0f, 4.0f));
+	XMStoreFloat4x4(&boxWall2->World, XMMatrixScaling(0.25f, 1.4f, 2.5f) * XMMatrixTranslation(7.0f, 5.0f, 6.5f));
 	boxWall2->ObjCBIndex = 3;
 	boxWall2->Mat = mMaterials["boxDesign"].get();
 	boxWall2->Geo = mGeometries["shapeGeo"].get();
@@ -1605,7 +1616,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Box Floor (Sol) ===
 	auto boxSol = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&boxSol->World, XMMatrixScaling(3.7f, 0.5f, 3.7f) * XMMatrixTranslation(-9.0f, 1.0f, 4.0f));
-	boxSol->ObjCBIndex = 17;
+	boxSol->ObjCBIndex = 6;
 	boxSol->Mat = mMaterials["wirefence"].get();
 	boxSol->Geo = mGeometries["shapeGeo"].get();
 	boxSol->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1618,7 +1629,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === House 1 (Base Box) ===
 	auto house1Base = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&house1Base->World, XMMatrixScaling(1.2f, 1.2f, 1.2f) * XMMatrixTranslation(-16.0f, 5.5f, -2.0f));
-	house1Base->ObjCBIndex = 19;
+	house1Base->ObjCBIndex = 7;
 	house1Base->Mat = mMaterials["boxDesign"].get();
 	house1Base->Geo = mGeometries["shapeGeo"].get();
 	house1Base->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1631,7 +1642,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === House 2 (Base Box) ===
 	auto house2Base = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&house2Base->World, XMMatrixScaling(1.0f, 1.0f, 2.0f) * XMMatrixTranslation(-2.0f, 5.0f, 7.0f));
-	house2Base->ObjCBIndex = 21;
+	house2Base->ObjCBIndex = 8;
 	house2Base->Mat = mMaterials["boxDesign"].get();
 	house2Base->Geo = mGeometries["shapeGeo"].get();
 	house2Base->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1647,7 +1658,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Cylinder 1 ===
 	auto cylinder1 = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&cylinder1->World, XMMatrixScaling(8.0f, 4.0f, 8.0f) * XMMatrixTranslation(7.0f, 6.0f, 20.0f));
-	cylinder1->ObjCBIndex = 6;
+	cylinder1->ObjCBIndex = 9;
 	cylinder1->Mat = mMaterials["cylinderDesign"].get();
 	cylinder1->Geo = mGeometries["shapeGeo"].get();
 	cylinder1->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1660,7 +1671,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Cylinder 2 ===
 	auto cylinder2 = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&cylinder2->World, XMMatrixScaling(8.0f, 4.0f, 8.0f)* XMMatrixTranslation(-25.0f, 6.0f, 20.0f));
-	cylinder2->ObjCBIndex = 7;
+	cylinder2->ObjCBIndex = 10;
 	cylinder2->Mat = mMaterials["cylinderDesign"].get();
 	cylinder2->Geo = mGeometries["shapeGeo"].get();
 	cylinder2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1673,7 +1684,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Cylinder 3 ===
 	auto cylinder3 = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&cylinder3->World, XMMatrixScaling(8.0f, 4.0f, 8.0f)* XMMatrixTranslation(7.0f, 6.0f, -12.0f));
-	cylinder3->ObjCBIndex = 8;
+	cylinder3->ObjCBIndex = 11;
 	cylinder3->Mat = mMaterials["cylinderDesign"].get();
 	cylinder3->Geo = mGeometries["shapeGeo"].get();
 	cylinder3->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1686,7 +1697,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Cylinder 4 ===
 	auto cylinder4 = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&cylinder4->World, XMMatrixScaling(8.0f, 4.0f, 8.0f)* XMMatrixTranslation(-25.0f, 6.0f, -12.0f));
-	cylinder4->ObjCBIndex = 9;
+	cylinder4->ObjCBIndex = 12;
 	cylinder4->Mat = mMaterials["cylinderDesign"].get();
 	cylinder4->Geo = mGeometries["shapeGeo"].get();
 	cylinder4->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1700,7 +1711,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Cone front Right ===
 	auto cone1 = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&cone1->World, XMMatrixScaling(6.5f, 1.0f, 6.5f)* XMMatrixTranslation(7.0f, 13.0f, 20.0f));
-	cone1->ObjCBIndex = 10;
+	cone1->ObjCBIndex = 13;
 	cone1->Mat = mMaterials["coneDesign"].get();
 	cone1->Geo = mGeometries["shapeGeo"].get();
 	cone1->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1713,7 +1724,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Cone front Left ===
 	auto cone2 = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&cone2->World, XMMatrixScaling(6.5f, 1.0f, 6.5f)* XMMatrixTranslation(-25.0f, 13.0f, 20.0f));
-	cone2->ObjCBIndex = 11;
+	cone2->ObjCBIndex = 14;
 	cone2->Mat = mMaterials["coneDesign"].get();
 	cone2->Geo = mGeometries["shapeGeo"].get();
 	cone2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1726,7 +1737,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Cone Back Right ===
 	auto cone3 = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&cone3->World, XMMatrixScaling(6.5f, 1.0f, 6.5f)* XMMatrixTranslation(7.0f, 13.0f, -12.0f));
-	cone3->ObjCBIndex = 12;
+	cone3->ObjCBIndex = 15;
 	cone3->Mat = mMaterials["coneDesign"].get();
 	cone3->Geo = mGeometries["shapeGeo"].get();
 	cone3->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1739,7 +1750,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Cone Back Left ===
 	auto cone4 = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&cone4->World, XMMatrixScaling(6.5f, 1.0f, 6.5f)* XMMatrixTranslation(-25.0f, 13.0f, -12.0f));
-	cone4->ObjCBIndex = 13;
+	cone4->ObjCBIndex = 16;
 	cone4->Mat = mMaterials["coneDesign"].get();
 	cone4->Geo = mGeometries["shapeGeo"].get();
 	cone4->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1749,41 +1760,11 @@ void TreeBillboardsApp::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(cone4.get());
 	mAllRitems.push_back(std::move(cone4));
 
-	// === House 2 (Triangular Prism Roof) ===
-	auto wedgeRoof = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&wedgeRoof->World,
-	XMMatrixScaling(6.0f, 2.0f, 6.0f)*
-	XMMatrixRotationX(-90)* 
-	XMMatrixTranslation(-2.0f, 12.0f, 40.0f));
-	wedgeRoof->ObjCBIndex = 20;
-	wedgeRoof->Mat = mMaterials["prismDesign"].get();
-	wedgeRoof->Geo = mGeometries["shapeGeo"].get();
-	wedgeRoof->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	wedgeRoof->IndexCount = wedgeRoof->Geo->DrawArgs["wedge"].IndexCount;
-	wedgeRoof->StartIndexLocation = wedgeRoof->Geo->DrawArgs["wedge"].StartIndexLocation;
-	wedgeRoof->BaseVertexLocation = wedgeRoof->Geo->DrawArgs["wedge"].BaseVertexLocation;
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(wedgeRoof.get());
-	mAllRitems.push_back(std::move(wedgeRoof));
-
-
-	auto house2Roof = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&house2Roof->World,
-	XMMatrixScaling(6.0f, 4.0f, 10.0f)*
-	XMMatrixRotationX(-XM_PIDIV2)*  
-	XMMatrixTranslation(-20.0f, 13.2f, 40.0f));
-	house2Roof->ObjCBIndex = 14;
-	house2Roof->Mat = mMaterials["prismDesign"].get(); 
-	house2Roof->Geo = mGeometries["shapeGeo"].get();
-	house2Roof->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	house2Roof->IndexCount = house2Roof->Geo->DrawArgs["prism"].IndexCount;
-	house2Roof->StartIndexLocation = house2Roof->Geo->DrawArgs["prism"].StartIndexLocation;
-	house2Roof->BaseVertexLocation = house2Roof->Geo->DrawArgs["prism"].BaseVertexLocation;
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(house2Roof.get());
-	mAllRitems.push_back(std::move(house2Roof));
+	
 
 	auto treeSpritesRitem = std::make_unique<RenderItem>();
 	treeSpritesRitem->World = MathHelper::Identity4x4();
-	treeSpritesRitem->ObjCBIndex = 15;
+	treeSpritesRitem->ObjCBIndex = 17;
 	treeSpritesRitem->Mat = mMaterials["treeSprites"].get();
 	treeSpritesRitem->Geo = mGeometries["treeSpritesGeo"].get();
 	treeSpritesRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
@@ -1796,7 +1777,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Sphere ===
 	auto sphereRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&sphereRitem->World, XMMatrixScaling(15.0f, 3.0f, 15.0f)* XMMatrixTranslation(-15.0f, 20.0f, 11.0f));
-	sphereRitem->ObjCBIndex = 16;
+	sphereRitem->ObjCBIndex = 18;
 	sphereRitem->Mat = mMaterials["boxDesign"].get(); 
 	sphereRitem->Geo = mGeometries["shapeGeo"].get();
 	sphereRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1809,7 +1790,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Pyramid ===
 	auto pyramidRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&pyramidRitem->World, XMMatrixScaling(12.0f, 6.0f, 12.0f)* XMMatrixTranslation(-16.0f, 13.0f, -2.0f));
-	pyramidRitem->ObjCBIndex = 18;
+	pyramidRitem->ObjCBIndex = 19;
 	pyramidRitem->Mat = mMaterials["prismDesign"].get(); 
 	pyramidRitem->Geo = mGeometries["shapeGeo"].get();
 	pyramidRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1825,7 +1806,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	XMMatrixScaling(12.0f, 8.0f, 18.0f)*  
 	XMMatrixTranslation(-2.0f, 13.0f, 7.0f) 
 	);
-	pyramidRoof2->ObjCBIndex = 23;
+	pyramidRoof2->ObjCBIndex = 20;
 	pyramidRoof2->Mat = mMaterials["prismDesign"].get(); 
 	pyramidRoof2->Geo = mGeometries["shapeGeo"].get();
 	pyramidRoof2->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1838,7 +1819,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	// === Cylinder === //
 	auto cylinder00 = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&cylinder00->World, XMMatrixScaling(2.0f, 7.0f, 2.0f)* XMMatrixTranslation(-15.0f, 8.0f, 11.0f));
-	cylinder00->ObjCBIndex = 22;
+	cylinder00->ObjCBIndex = 21;
 	cylinder00->Mat = mMaterials["cylinderDesign"].get();
 	cylinder00->Geo = mGeometries["shapeGeo"].get();
 	cylinder00->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1857,7 +1838,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	mAllRitems.push_back(std::move(pyramidRitem));
 
 
-	int objCBIndex = 24; // ou selon le dernier utilisé
+	int objCBIndex = 22; // ou selon le dernier utilisé
 	BuildMazeWalls(objCBIndex);
 
 }
@@ -1866,7 +1847,7 @@ void TreeBillboardsApp::BuildFrameResources()
 	for (int i = 0; i < gNumFrameResources; ++i)
 	{
 		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(),
-			1, (UINT)mAllRitems.size(), (UINT)mMaterials.size(), mWaves->VertexCount()));
+			1,300, 300, mWaves->VertexCount()));
 	}
 }
 
@@ -1959,22 +1940,32 @@ std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> TreeBillboardsApp::GetStaticSam
 		anisotropicWrap, anisotropicClamp };
 }
 
-float TreeBillboardsApp::GetHillsHeight(float x, float z)const
+float TreeBillboardsApp::GetHillsHeight(float x, float z) const
 {
-	float radius = 17.0f; 
-
-	
-	if (sqrt(x * x + z * z) < radius)
+	// Zone centrale plate (ancien cercle)
+	if (sqrt(x * x + z * z) < 17.0f)
 		return 0.0f;
 
-	
-	return 0.07f * (z * sinf(0.1f * x) + x * cosf(0.1f * z));
+	// Zone du labyrinthe à aplanir : de x = 20 à 48, z = -10 à 20
+	if (x > 20.0f && x < 48.0f && z > -10.0f && z < 20.0f)
+		return 0.0f;
 
+	// Reste du terrain avec relief
+	return 0.07f * (z * sinf(0.1f * x) + x * cosf(0.1f * z));
 }
 
-XMFLOAT3 TreeBillboardsApp::GetHillsNormal(float x, float z)const
+
+XMFLOAT3 TreeBillboardsApp::GetHillsNormal(float x, float z) const
 {
-	// n = (-df/dx, 1, -df/dz)
+	
+	if (sqrt(x * x + z * z) < 17.0f)
+		return XMFLOAT3(0.0f, 1.0f, 0.0f);
+
+	
+	if (x > 20.0f && x < 48.0f && z > -10.0f && z < 20.0f)
+		return XMFLOAT3(0.0f, 1.0f, 0.0f);
+
+	
 	XMFLOAT3 n(
 		-0.01f * z * cosf(0.1f * x) - 0.1f * cosf(0.1f * z),
 		1.0f,
@@ -1983,5 +1974,4 @@ XMFLOAT3 TreeBillboardsApp::GetHillsNormal(float x, float z)const
 	XMVECTOR unitNormal = XMVector3Normalize(XMLoadFloat3(&n));
 	XMStoreFloat3(&n, unitNormal);
 	return n;
-	//return XMFLOAT3(0.0f, 1.0f, 0.0f);
 }
